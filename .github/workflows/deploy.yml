@@ -88,6 +88,7 @@ jobs:
     - name: Deploy to EKS cluster
       run: |
         # 设置变量
+
         export DOCKER_IMAGE="$DOCKER_IMAGE"
         export IMAGE_TAG="$GITHUB_SHA"
         export BUILD_TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -98,7 +99,9 @@ jobs:
         
         # 替换 deployment.yaml 中的变量
         envsubst < k8s/deployment.yaml > k8s/deployment-processed.yaml
-        
+            # 新增：验证变量是否被正确替换（关键！）
+        echo "=== 检查生成的部署文件中的镜像名称 ==="
+        grep "image:" k8s/deployment-processed.yaml 
         # 应用 Kubernetes 配置
         kubectl apply -f k8s/deployment-processed.yaml
         kubectl apply -f k8s/service.yaml
