@@ -11,7 +11,7 @@ env:
   AWS_REGION: us-east-1  # 修改为你的区域
   EKS_CLUSTER_NAME: bosi-eks  # 修改为你的集群名
   K8S_NAMESPACE: default
-  DOCKER_IMAGE: nginx-eks-k8s/nginx-eks  # 修改为你的 Docker Hub 镜像名
+  DOCKER_IMAGE: yanhu12/nginx-eks-k8s # 修改为你的 Docker Hub 镜像名
 
 jobs:
   build-and-test:
