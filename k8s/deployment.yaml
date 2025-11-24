@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+      annotations:
+        build.timestamp: "{{BUILD_TIMESTAMP}}"
+        git.commit: "{{GIT_COMMIT}}"
+    spec:
+      containers:
+      - name: nginx
+        image: {{DOCKER_IMAGE}}:{{IMAGE_TAG}}
+        ports:
+        - containerPort: 80
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        env:
+        - name: BUILD_TIMESTAMP
+          value: "{{BUILD_TIMESTAMP}}"
+        - name: GIT_COMMIT
+          value: "{{GIT_COMMIT}}"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-index
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head><title>Fallback Page</title></head>
+    <body><h1>Nginx is running on EKS</h1></body>
+    </html>

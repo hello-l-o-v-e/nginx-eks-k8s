@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nginx on EKS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-left: 4px solid #2196F3;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Nginx on AWS EKS</h1>
+        <div class="info">
+            <p><strong>部署方式:</strong> GitHub Actions + Docker Hub</p>
+            <p><strong>构建时间:</strong> <span id="buildTime"></span></p>
+            <p><strong>Git Commit:</strong> <span id="commitHash"></span></p>
+        </div>
+        <p>这个页面是通过 GitHub Actions 自动构建和部署到 AWS EKS 集群的。</p>
+        
+        <h2>部署信息:</h2>
+        <ul>
+            <li>✅ 使用 Docker Hub 作为镜像仓库</li>
+            <li>✅ 自动构建 Docker 镜像</li>
+            <li>✅ 自动部署到 EKS</li>
+            <li>✅ 健康检查端点: <a href="/health">/health</a></li>
+        </ul>
+    </div>
+
+    <script>
+        document.getElementById('buildTime').textContent = new Date().toLocaleString();
+        // 可以从环境变量获取 commit hash，这里用示例
+        document.getElementById('commitHash').textContent = '{{GIT_COMMIT}}'.substring(0, 7);
+    </script>
+</body>
+</html>

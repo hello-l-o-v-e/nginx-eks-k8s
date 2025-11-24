@@ -1,0 +1,165 @@
+name: Deploy Nginx to EKS
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+env:
+  AWS_REGION: us-west-2  # 修改为你的区域
+  EKS_CLUSTER_NAME: your-eks-cluster-name  # 修改为你的集群名
+  K8S_NAMESPACE: default
+  DOCKER_IMAGE: your-dockerhub-username/nginx-eks  # 修改为你的 Docker Hub 镜像名
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      run: |
+        docker build -t $DOCKER_IMAGE:latest ./nginx
+
+    - name: Test Docker image
+      run: |
+        docker run --rm $DOCKER_IMAGE:latest nginx -t
+        docker run --rm -d --name test-nginx $DOCKER_IMAGE:latest
+        sleep 5
+        docker exec test-nginx curl -f http://localhost/health || exit 1
+        docker stop test-nginx
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      run: |
+        # 构建镜像并打标签
+        docker build -t $DOCKER_IMAGE:latest -t $DOCKER_IMAGE:$GITHUB_SHA ./nginx
+        
+        # 推送镜像到 Docker Hub
+        docker push $DOCKER_IMAGE:latest
+        docker push $DOCKER_IMAGE:$GITHUB_SHA
+
+    - name: Set up Kubernetes tools
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure EKS kubeconfig
+      run: |
+        aws eks update-kubeconfig \
+          --region ${{ env.AWS_REGION }} \
+          --name ${{ env.EKS_CLUSTER_NAME }}
+
+    - name: Deploy to EKS cluster
+      run: |
+        # 设置变量
+        export DOCKER_IMAGE="$DOCKER_IMAGE"
+        export IMAGE_TAG="$GITHUB_SHA"
+        export BUILD_TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        export GIT_COMMIT="$GITHUB_SHA"
+        
+        # 使用 envsubst 替换模板变量（如果没有 envsubst，可以使用 sed）
+        apt-get update && apt-get install -y gettext-base
+        
+        # 替换 deployment.yaml 中的变量
+        envsubst < k8s/deployment.yaml > k8s/deployment-processed.yaml
+        
+        # 应用 Kubernetes 配置
+        kubectl apply -f k8s/deployment-processed.yaml
+        kubectl apply -f k8s/service.yaml
+        
+        # 等待部署完成
+        kubectl rollout status deployment/nginx-deployment --timeout=300s
+
+    - name: Verify deployment
+      run: |
+        echo "=== Deployment Verification ==="
+        kubectl get deployments
+        echo ""
+        echo "=== Pods Status ==="
+        kubectl get pods -l app=nginx
+        echo ""
+        echo "=== Service Info ==="
+        kubectl get service nginx-service
+        echo ""
+        echo "=== Deployment Details ==="
+        kubectl describe deployment nginx-deployment
+
+    - name: Smoke test
+      run: |
+        # 获取服务外部 IP（等待负载均衡器就绪）
+        echo "Waiting for service to get external IP..."
+        timeout 300s bash -c 'until kubectl get service nginx-service -o jsonpath="{.status.loadBalancer.ingress[0].hostname}" | grep -q "."; do sleep 5; done'
+        
+        SERVICE_HOSTNAME=$(kubectl get service nginx-service -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+        echo "Service URL: http://$SERVICE_HOSTNAME"
+        
+        # 健康检查
+        if curl -f "http://$SERVICE_HOSTNAME/health"; then
+          echo "✅ Health check passed"
+        else
+          echo "❌ Health check failed"
+          exit 1
+        fi
+
+  rollback-on-failure:
+    needs: deploy
+    if: failure() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Kubernetes tools
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure EKS kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Rollback deployment
+        run: |
+          echo "Deployment failed, rolling back..."
+          kubectl rollout undo deployment/nginx-deployment
+          kubectl rollout status deployment/nginx-deployment
+          echo "Rollback completed"
