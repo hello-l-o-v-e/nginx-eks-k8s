@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: {{DOCKER_IMAGE}}:{{IMAGE_TAG}}
+        image: "{{DOCKER_IMAGE}}:{{IMAGE_TAG}}"
         ports:
         - containerPort: 80
         livenessProbe:
