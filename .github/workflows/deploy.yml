@@ -94,7 +94,7 @@ jobs:
         export GIT_COMMIT="$GITHUB_SHA"
         
         # 使用 envsubst 替换模板变量（如果没有 envsubst，可以使用 sed）
-        sudo apt-get update && apt-get install -y gettext-base
+        sudo apt-get update && sudo apt-get install -y gettext-base
         
         # 替换 deployment.yaml 中的变量
         envsubst < k8s/deployment.yaml > k8s/deployment-processed.yaml
@@ -104,7 +104,7 @@ jobs:
         kubectl apply -f k8s/service.yaml
         
         # 等待部署完成
-        kubectl rollout status deployment/nginx-deployment --timeout=300s
+        kubectl rollout status deployment/nginx-deployment --timeout=30s
 
     - name: Verify deployment
       run: |
