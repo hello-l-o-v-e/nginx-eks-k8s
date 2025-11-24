@@ -8,10 +8,10 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 env:
-  AWS_REGION: us-west-2  # 修改为你的区域
-  EKS_CLUSTER_NAME: your-eks-cluster-name  # 修改为你的集群名
+  AWS_REGION: us-east-1  # 修改为你的区域
+  EKS_CLUSTER_NAME: bosi-eks  # 修改为你的集群名
   K8S_NAMESPACE: default
-  DOCKER_IMAGE: your-dockerhub-username/nginx-eks  # 修改为你的 Docker Hub 镜像名
+  DOCKER_IMAGE: nginx-eks-k8s/nginx-eks  # 修改为你的 Docker Hub 镜像名
 
 jobs:
   build-and-test:
