@@ -5,7 +5,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 
 # 复制静态文件
 COPY index.html /usr/share/nginx/html/index.html
-COPY custom.css /usr/share/nginx/html/  # 可选
+#COPY custom.css /usr/share/nginx/html/  # 可选
 
 # 设置权限
 RUN chown -R nginx:nginx /usr/share/nginx/html
